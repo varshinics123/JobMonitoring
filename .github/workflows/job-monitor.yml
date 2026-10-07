@@ -4,16 +4,14 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: '30 14 * * 1-5'
-      timezone: "Asia/Kolkata"
+    # 2:30 PM IST = 09:00 UTC
+    - cron: '0 9 * * 1-5'
 
-    - cron: '10 18 * * 1-5'
-      timezone: "Asia/Kolkata"
+    # 6:10 PM IST = 12:40 UTC
+    - cron: '40 12 * * 1-5'
 
 jobs:
-
   monitor:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -28,6 +26,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run Synapse Job Monitoring
