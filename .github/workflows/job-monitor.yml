@@ -7,8 +7,8 @@ on:
     # 2:30 PM IST = 09:00 UTC
     - cron: '0 9 * * 1-5'
 
-    # 6:10 PM IST = 12:40 UTC
-    - cron: '40 12 * * 1-5'
+    # 3:00 PM IST = 09:30 UTC
+    - cron: '30 9 * * 1-5'
 
 jobs:
   monitor:
