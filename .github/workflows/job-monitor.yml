@@ -55,7 +55,7 @@ jobs:
           SYNAPSE_ENDPOINT: ${{ secrets.SYNAPSE_ENDPOINT }}
 
         run: |
-          python synapse_monitor.py
+          synapse_Weekly_Monitor.py
 
 
       # ======================================================
