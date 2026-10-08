@@ -48,10 +48,12 @@ CSV_FILE = (
 # EMAIL CONFIGURATION
 # ============================================================
 
+# Actual Microsoft 365 UPN used by Microsoft Graph
 EMAIL_SENDER = (
-    "Varshini.cs@usclaro.com"
+    "varshini.cs@usclarroit.onmicrosoft.com"
 )
 
+# Email recipients
 EMAIL_RECIPIENTS = [
 
     "Varshini.cs@marlabs.com",
@@ -1153,10 +1155,7 @@ def send_email_report(
     for header in table_headers:
 
         table_html += (
-            "<th style="
-            "'font-weight:bold;"
-            "padding:6px;"
-            "'>"
+            '<th style="font-weight:bold;padding:6px;">'
             + html.escape(header)
             + "</th>"
         )
@@ -1183,10 +1182,7 @@ def send_email_report(
             )
 
             table_html += (
-                "<td style="
-                "'padding:6px;"
-                "white-space:nowrap;"
-                "'>"
+                '<td style="padding:6px;white-space:nowrap;">'
                 + html.escape(value)
                 + "</td>"
             )
