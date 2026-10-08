@@ -48,9 +48,9 @@ CSV_FILE = (
 # EMAIL CONFIGURATION
 # ============================================================
 
-# Microsoft 365 user/mailbox used as sender
+# US Claro mailbox used as sender
 EMAIL_SENDER = (
-    "Rakesh.Nataraja@usclaroit.onmicrosoft.com"
+    "Varshini.CS@usclaro.com"
 )
 
 # Email recipients
@@ -650,15 +650,11 @@ def sort_runs(
                 )
             )
 
-            # 1:30 PM first
-
             if job_type == (
                 "PL_Captura_Snapshots_1_30_PM"
             ):
 
                 job_order = 0
-
-            # 11:30 PM second
 
             elif job_type == (
                 "PL_Captura_Snapshots_11_30_PM"
