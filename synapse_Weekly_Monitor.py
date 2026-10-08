@@ -1,6 +1,8 @@
 import os
 import csv
 import requests
+import base64
+import html
 
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -29,6 +31,10 @@ SYNAPSE_SCOPE = (
     "https://dev.azuresynapse.net/.default"
 )
 
+GRAPH_SCOPE = (
+    "https://graph.microsoft.com/.default"
+)
+
 LOCAL_TIMEZONE = ZoneInfo(
     "Asia/Kolkata"
 )
@@ -36,6 +42,22 @@ LOCAL_TIMEZONE = ZoneInfo(
 CSV_FILE = (
     "synapse_pipeline_results.csv"
 )
+
+
+# ============================================================
+# EMAIL CONFIGURATION
+# ============================================================
+
+EMAIL_SENDER = (
+    "Varshini.cs@usclaro.com"
+)
+
+EMAIL_RECIPIENTS = [
+
+    "Varshini.cs@marlabs.com",
+
+    "Varshini.cs@usclaro.com"
+]
 
 
 # ============================================================
@@ -243,9 +265,7 @@ def get_captura_job_type(
     if dt is None:
         return None
 
-    # --------------------------------------------------------
     # 1:30 PM job
-    # --------------------------------------------------------
 
     if (
         dt.hour == 13
@@ -256,10 +276,7 @@ def get_captura_job_type(
             "PL_Captura_Snapshots_1_30_PM"
         )
 
-
-    # --------------------------------------------------------
     # 11:30 PM job
-    # --------------------------------------------------------
 
     if (
         dt.hour == 23
@@ -269,7 +286,6 @@ def get_captura_job_type(
         return (
             "PL_Captura_Snapshots_11_30_PM"
         )
-
 
     return None
 
@@ -284,9 +300,7 @@ def get_average_group(run):
         "pipelineName"
     )
 
-    # --------------------------------------------------------
     # PL_Captura has two separate jobs
-    # --------------------------------------------------------
 
     if pipeline == (
         "PL_Captura_Snapshots"
@@ -306,10 +320,7 @@ def get_average_group(run):
             job_type
         )
 
-
-    # --------------------------------------------------------
     # Other pipelines have one group each
-    # --------------------------------------------------------
 
     return (
         pipeline,
@@ -327,7 +338,6 @@ def get_previous_week_range():
         LOCAL_TIMEZONE
     ).date()
 
-
     # Current week's Monday
 
     current_week_monday = (
@@ -337,7 +347,6 @@ def get_previous_week_range():
         )
     )
 
-
     # Previous week's Monday
 
     previous_week_monday = (
@@ -345,14 +354,12 @@ def get_previous_week_range():
         - timedelta(days=7)
     )
 
-
     # Previous week's Friday
 
     previous_week_friday = (
         previous_week_monday
         + timedelta(days=4)
     )
-
 
     return (
         previous_week_monday,
@@ -373,52 +380,31 @@ def get_pipeline_runs(
         get_access_token()
     )
 
-
     url = (
-
         f"{SYNAPSE_ENDPOINT}"
-
         f"/queryPipelineRuns"
-
         f"?api-version={API_VERSION}"
     )
 
-
-    # --------------------------------------------------------
     # Previous Monday 00:00:00 IST
-    # --------------------------------------------------------
 
     start_ist = datetime.combine(
-
         start_date,
-
         datetime.min.time()
-
     ).replace(
-
         tzinfo=LOCAL_TIMEZONE
     )
 
-
-    # --------------------------------------------------------
     # Previous Friday 23:59:59.999999 IST
-    # --------------------------------------------------------
 
     end_ist = datetime.combine(
-
         end_date,
-
         datetime.max.time()
-
     ).replace(
-
         tzinfo=LOCAL_TIMEZONE
     )
 
-
-    # --------------------------------------------------------
     # Convert boundaries to UTC
-    # --------------------------------------------------------
 
     start_utc = (
         start_ist.astimezone(
@@ -431,7 +417,6 @@ def get_pipeline_runs(
             timezone.utc
         )
     )
-
 
     payload = {
 
@@ -457,7 +442,6 @@ def get_pipeline_runs(
         ]
     }
 
-
     headers = {
 
         "Authorization":
@@ -467,15 +451,11 @@ def get_pipeline_runs(
             "application/json"
     }
 
-
     all_runs = []
 
     continuation_token = None
 
-
-    # --------------------------------------------------------
     # Synapse pagination
-    # --------------------------------------------------------
 
     while True:
 
@@ -484,7 +464,6 @@ def get_pipeline_runs(
             payload[
                 "continuationToken"
             ] = continuation_token
-
 
         response = requests.post(
 
@@ -497,23 +476,18 @@ def get_pipeline_runs(
             timeout=60
         )
 
-
         response.raise_for_status()
 
-
         data = response.json()
-
 
         runs = data.get(
             "value",
             []
         )
 
-
         all_runs.extend(
             runs
         )
-
 
         continuation_token = (
             data.get(
@@ -521,11 +495,9 @@ def get_pipeline_runs(
             )
         )
 
-
         if not continuation_token:
 
             break
-
 
     return all_runs
 
@@ -548,9 +520,7 @@ def get_monitored_runs(
         in MONITORED_PIPELINES
     }
 
-
     filtered_runs = []
-
 
     for run in all_runs:
 
@@ -559,10 +529,7 @@ def get_monitored_runs(
             ""
         )
 
-
-        # ----------------------------------------------------
         # Check pipeline name
-        # ----------------------------------------------------
 
         if (
             pipeline_name.lower()
@@ -571,11 +538,9 @@ def get_monitored_runs(
 
             continue
 
-
         run_start = run.get(
             "runStart"
         )
-
 
         run_start_ist = (
             convert_to_ist(
@@ -583,20 +548,15 @@ def get_monitored_runs(
             )
         )
 
-
         if run_start_ist is None:
 
             continue
-
 
         run_date = (
             run_start_ist.date()
         )
 
-
-        # ----------------------------------------------------
         # Keep only previous Monday-Friday
-        # ----------------------------------------------------
 
         if (
             run_date < start_date
@@ -606,11 +566,9 @@ def get_monitored_runs(
 
             continue
 
-
         filtered_runs.append(
             run
         )
-
 
     return filtered_runs
 
@@ -625,7 +583,6 @@ def calculate_average_durations(
 
     durations = {}
 
-
     for run in runs:
 
         run_start = run.get(
@@ -636,25 +593,18 @@ def calculate_average_durations(
             "runEnd"
         )
 
-
         duration_ms = (
             calculate_duration_ms(
-
                 run_start,
-
                 run_end
             )
         )
 
-
-        # ----------------------------------------------------
         # Ignore InProgress / incomplete jobs
-        # ----------------------------------------------------
 
         if duration_ms is None:
 
             continue
-
 
         average_group = (
             get_average_group(
@@ -662,24 +612,18 @@ def calculate_average_durations(
             )
         )
 
-
         if average_group is None:
 
             continue
 
-
         durations.setdefault(
-
             average_group,
-
             []
         ).append(
             duration_ms
         )
 
-
     averages = {}
-
 
     for group, values in (
         durations.items()
@@ -691,7 +635,6 @@ def calculate_average_durations(
                 sum(values)
                 / len(values)
             )
-
 
     return averages
 
@@ -711,7 +654,6 @@ def sort_runs(
             ""
         )
 
-
         pipeline_order = (
             PIPELINE_ORDER.get(
                 pipeline,
@@ -719,13 +661,9 @@ def sort_runs(
             )
         )
 
-
         job_order = 0
 
-
-        # ----------------------------------------------------
         # PL_Captura ordering
-        # ----------------------------------------------------
 
         if pipeline == (
             "PL_Captura_Snapshots"
@@ -739,7 +677,6 @@ def sort_runs(
                 )
             )
 
-
             # 1:30 PM first
 
             if job_type == (
@@ -747,7 +684,6 @@ def sort_runs(
             ):
 
                 job_order = 0
-
 
             # 11:30 PM second
 
@@ -757,18 +693,15 @@ def sort_runs(
 
                 job_order = 1
 
-
             else:
 
                 job_order = 2
-
 
         run_start = parse_datetime(
             run.get(
                 "runStart"
             )
         )
-
 
         if run_start:
 
@@ -782,16 +715,11 @@ def sort_runs(
                 "inf"
             )
 
-
         return (
-
             pipeline_order,
-
             job_order,
-
             timestamp
         )
-
 
     return sorted(
         runs,
@@ -814,7 +742,6 @@ def get_triggered_by(
         or {}
     )
 
-
     return invoked_by.get(
         "name",
         "-"
@@ -832,14 +759,10 @@ def build_report(
 
     rows = []
 
-
-    # --------------------------------------------------------
     # Average is displayed only on the
     # first row of each job group.
-    # --------------------------------------------------------
 
     average_already_displayed = set()
-
 
     for run in runs:
 
@@ -848,26 +771,20 @@ def build_report(
             "-"
         )
 
-
         run_start = run.get(
             "runStart"
         )
-
 
         run_end = run.get(
             "runEnd"
         )
 
-
         duration_ms = (
             calculate_duration_ms(
-
                 run_start,
-
                 run_end
             )
         )
-
 
         average_group = (
             get_average_group(
@@ -875,30 +792,20 @@ def build_report(
             )
         )
 
-
         average_duration = ""
 
-
-        # ----------------------------------------------------
-        # Display average only once
-        # per job group.
-        # ----------------------------------------------------
+        # Display average only once per group
 
         if (
-
             average_group is not None
-
             and
-
             average_group
             not in average_already_displayed
-
         ):
 
             average_ms = averages.get(
                 average_group
             )
-
 
             if average_ms is not None:
 
@@ -908,11 +815,9 @@ def build_report(
                     )
                 )
 
-
             average_already_displayed.add(
                 average_group
             )
-
 
         rows.append({
 
@@ -955,7 +860,6 @@ def build_report(
                 average_duration
         })
 
-
     return rows
 
 
@@ -969,9 +873,12 @@ def print_table(
 
     print()
     print("=" * 180)
-    print("SYNAPSE JOB MONITORING RESULTS")
-    print("=" * 180)
 
+    print(
+        "SYNAPSE JOB MONITORING RESULTS"
+    )
+
+    print("=" * 180)
 
     if not rows:
 
@@ -980,7 +887,6 @@ def print_table(
         )
 
         return
-
 
     headers = [
 
@@ -1001,20 +907,15 @@ def print_table(
         "Avg of duration"
     ]
 
-
-    # --------------------------------------------------------
     # Calculate column widths
-    # --------------------------------------------------------
 
     widths = {}
-
 
     for header in headers:
 
         widths[header] = len(
             header
         )
-
 
     for row in rows:
 
@@ -1027,7 +928,6 @@ def print_table(
                 )
             )
 
-
             widths[header] = max(
 
                 widths[header],
@@ -1035,10 +935,7 @@ def print_table(
                 len(value)
             )
 
-
-    # --------------------------------------------------------
     # Header
-    # --------------------------------------------------------
 
     header_line = (
         " | ".join(
@@ -1051,7 +948,6 @@ def print_table(
         )
     )
 
-
     separator = (
         "-+-".join(
 
@@ -1061,7 +957,6 @@ def print_table(
         )
     )
 
-
     print(
         header_line
     )
@@ -1070,10 +965,7 @@ def print_table(
         separator
     )
 
-
-    # --------------------------------------------------------
     # Rows
-    # --------------------------------------------------------
 
     for row in rows:
 
@@ -1094,8 +986,8 @@ def print_table(
             )
         )
 
-
     print()
+
     print(
         f"Total rows: {len(rows)}"
     )
@@ -1128,7 +1020,6 @@ def create_csv(
         "Avg of duration"
     ]
 
-
     with open(
 
         CSV_FILE,
@@ -1141,7 +1032,6 @@ def create_csv(
 
     ) as file:
 
-
         writer = csv.DictWriter(
 
             file,
@@ -1149,14 +1039,11 @@ def create_csv(
             fieldnames=headers
         )
 
-
         writer.writeheader()
-
 
         writer.writerows(
             rows
         )
-
 
     print()
 
@@ -1164,6 +1051,330 @@ def create_csv(
         f"CSV generated: "
         f"{CSV_FILE}"
     )
+
+
+# ============================================================
+# SEND EMAIL REPORT
+# ============================================================
+
+def send_email_report(
+    rows,
+    start_date,
+    end_date
+):
+
+    print()
+    print(
+        "Sending email report..."
+    )
+
+    # --------------------------------------------------------
+    # Get Microsoft Graph access token
+    # --------------------------------------------------------
+
+    credential = ClientSecretCredential(
+
+        tenant_id=TENANT_ID,
+
+        client_id=CLIENT_ID,
+
+        client_secret=CLIENT_SECRET
+    )
+
+    graph_token = credential.get_token(
+        GRAPH_SCOPE
+    ).token
+
+    # --------------------------------------------------------
+    # Microsoft Graph headers
+    # --------------------------------------------------------
+
+    headers = {
+
+        "Authorization":
+            f"Bearer {graph_token}",
+
+        "Content-Type":
+            "application/json"
+    }
+
+    # --------------------------------------------------------
+    # Email subject
+    # --------------------------------------------------------
+
+    subject = (
+        "Weekly Synapse Job Monitoring Report - "
+        f"{start_date.strftime('%d/%m/%Y')} to "
+        f"{end_date.strftime('%d/%m/%Y')}"
+    )
+
+    # --------------------------------------------------------
+    # Table headers
+    # --------------------------------------------------------
+
+    table_headers = [
+
+        "Pipeline name",
+
+        "Run start",
+
+        "Run end",
+
+        "Duration",
+
+        "Triggered by",
+
+        "Status",
+
+        "Run ID",
+
+        "Avg of duration"
+    ]
+
+    # --------------------------------------------------------
+    # Build HTML table
+    # --------------------------------------------------------
+
+    table_html = """
+    <table border="1"
+           cellpadding="6"
+           cellspacing="0"
+           style="
+               border-collapse: collapse;
+               font-family: Arial, sans-serif;
+               font-size: 12px;
+           ">
+
+        <thead>
+
+            <tr>
+    """
+
+    for header in table_headers:
+
+        table_html += (
+            "<th style="
+            "'font-weight:bold;"
+            "padding:6px;"
+            "'>"
+            + html.escape(header)
+            + "</th>"
+        )
+
+    table_html += """
+            </tr>
+
+        </thead>
+
+        <tbody>
+    """
+
+    for row in rows:
+
+        table_html += "<tr>"
+
+        for header in table_headers:
+
+            value = str(
+                row.get(
+                    header,
+                    ""
+                )
+            )
+
+            table_html += (
+                "<td style="
+                "'padding:6px;"
+                "white-space:nowrap;"
+                "'>"
+                + html.escape(value)
+                + "</td>"
+            )
+
+        table_html += "</tr>"
+
+    table_html += """
+        </tbody>
+
+    </table>
+    """
+
+    # --------------------------------------------------------
+    # Email body
+    # --------------------------------------------------------
+
+    email_body = f"""
+    <html>
+
+    <body style="
+        font-family: Arial, sans-serif;
+    ">
+
+        <p>Hello,</p>
+
+        <p>
+            Please find below the weekly Synapse Job Monitoring
+            report.
+        </p>
+
+        <p>
+            <b>Reporting Period:</b>
+            {start_date.strftime('%d/%m/%Y')}
+            to
+            {end_date.strftime('%d/%m/%Y')}
+        </p>
+
+        {table_html}
+
+        <br>
+
+        <p>
+            The CSV report is attached to this email.
+        </p>
+
+        <p>
+            Regards,<br>
+            Job Monitoring
+        </p>
+
+    </body>
+
+    </html>
+    """
+
+    # --------------------------------------------------------
+    # Read CSV attachment
+    # --------------------------------------------------------
+
+    with open(
+        CSV_FILE,
+        "rb"
+    ) as file:
+
+        attachment_content = (
+            base64.b64encode(
+                file.read()
+            ).decode("utf-8")
+        )
+
+    # --------------------------------------------------------
+    # Build recipients
+    # --------------------------------------------------------
+
+    recipients = []
+
+    for email_address in EMAIL_RECIPIENTS:
+
+        recipients.append({
+
+            "emailAddress": {
+
+                "address":
+                    email_address
+            }
+        })
+
+    # --------------------------------------------------------
+    # Microsoft Graph email payload
+    # --------------------------------------------------------
+
+    payload = {
+
+        "message": {
+
+            "subject":
+                subject,
+
+            "body": {
+
+                "contentType":
+                    "HTML",
+
+                "content":
+                    email_body
+            },
+
+            "toRecipients":
+                recipients,
+
+            "attachments": [
+
+                {
+
+                    "@odata.type":
+                        "#microsoft.graph.fileAttachment",
+
+                    "name":
+                        CSV_FILE,
+
+                    "contentType":
+                        "text/csv",
+
+                    "contentBytes":
+                        attachment_content
+                }
+            ]
+        },
+
+        "saveToSentItems":
+            True
+    }
+
+    # --------------------------------------------------------
+    # Send email using Microsoft Graph
+    # --------------------------------------------------------
+
+    url = (
+        "https://graph.microsoft.com/v1.0/"
+        f"users/{EMAIL_SENDER}/sendMail"
+    )
+
+    response = requests.post(
+
+        url,
+
+        headers=headers,
+
+        json=payload,
+
+        timeout=60
+    )
+
+    # Print response details if email fails
+
+    if not response.ok:
+
+        print(
+            "Email sending failed."
+        )
+
+        print(
+            f"HTTP status: "
+            f"{response.status_code}"
+        )
+
+        print(
+            f"Response: "
+            f"{response.text}"
+        )
+
+        response.raise_for_status()
+
+    print()
+
+    print(
+        "Email sent successfully."
+    )
+
+    print(
+        "Recipients:"
+    )
+
+    for email_address in EMAIL_RECIPIENTS:
+
+        print(
+            f"  - {email_address}"
+        )
 
 
 # ============================================================
@@ -1182,7 +1393,6 @@ def main():
 
     print("=" * 80)
 
-
     # --------------------------------------------------------
     # Determine previous week's Monday-Friday
     # --------------------------------------------------------
@@ -1190,7 +1400,6 @@ def main():
     start_date, end_date = (
         get_previous_week_range()
     )
-
 
     print()
 
@@ -1205,14 +1414,11 @@ def main():
         f"{end_date.strftime('%d/%m/%Y')}"
     )
 
-
     print()
-
 
     print(
         "Connecting to Azure Synapse..."
     )
-
 
     # --------------------------------------------------------
     # Fetch Synapse runs
@@ -1225,14 +1431,12 @@ def main():
         end_date
     )
 
-
     print()
 
     print(
         f"Total runs received: "
         f"{len(all_runs)}"
     )
-
 
     # --------------------------------------------------------
     # Filter monitored pipelines
@@ -1249,12 +1453,10 @@ def main():
         )
     )
 
-
     print(
         f"Monitored runs found: "
         f"{len(monitored_runs)}"
     )
-
 
     # --------------------------------------------------------
     # Sort results
@@ -1263,7 +1465,6 @@ def main():
     monitored_runs = sort_runs(
         monitored_runs
     )
-
 
     # --------------------------------------------------------
     # Calculate previous week's averages
@@ -1276,7 +1477,6 @@ def main():
         )
     )
 
-
     # --------------------------------------------------------
     # Build final report
     # --------------------------------------------------------
@@ -1288,7 +1488,6 @@ def main():
         averages
     )
 
-
     # --------------------------------------------------------
     # Print table to GitHub log
     # --------------------------------------------------------
@@ -1296,7 +1495,6 @@ def main():
     print_table(
         rows
     )
-
 
     # --------------------------------------------------------
     # Create CSV
@@ -1306,6 +1504,18 @@ def main():
         rows
     )
 
+    # --------------------------------------------------------
+    # Send email
+    # --------------------------------------------------------
+
+    send_email_report(
+
+        rows,
+
+        start_date,
+
+        end_date
+    )
 
     print()
 
