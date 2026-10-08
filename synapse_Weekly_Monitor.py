@@ -48,9 +48,9 @@ CSV_FILE = (
 # EMAIL CONFIGURATION
 # ============================================================
 
-# Actual Microsoft 365 UPN used by Microsoft Graph
+# Microsoft 365 user/mailbox used as sender
 EMAIL_SENDER = (
-    "varshini.cs@usclarroit.onmicrosoft.com"
+    "Rakesh.Nataraja@usclaroit.onmicrosoft.com"
 )
 
 # Email recipients
@@ -101,11 +101,8 @@ PIPELINE_ORDER = {
 def get_access_token():
 
     credential = ClientSecretCredential(
-
         tenant_id=TENANT_ID,
-
         client_id=CLIENT_ID,
-
         client_secret=CLIENT_SECRET
     )
 
@@ -226,8 +223,7 @@ def format_duration(
         return "-"
 
     hours = (
-        total_seconds
-        // 3600
+        total_seconds // 3600
     )
 
     minutes = (
@@ -302,8 +298,6 @@ def get_average_group(run):
         "pipelineName"
     )
 
-    # PL_Captura has two separate jobs
-
     if pipeline == (
         "PL_Captura_Snapshots"
     ):
@@ -322,8 +316,6 @@ def get_average_group(run):
             job_type
         )
 
-    # Other pipelines have one group each
-
     return (
         pipeline,
         "single_job"
@@ -340,8 +332,6 @@ def get_previous_week_range():
         LOCAL_TIMEZONE
     ).date()
 
-    # Current week's Monday
-
     current_week_monday = (
         today
         - timedelta(
@@ -349,14 +339,10 @@ def get_previous_week_range():
         )
     )
 
-    # Previous week's Monday
-
     previous_week_monday = (
         current_week_monday
         - timedelta(days=7)
     )
-
-    # Previous week's Friday
 
     previous_week_friday = (
         previous_week_monday
@@ -388,8 +374,6 @@ def get_pipeline_runs(
         f"?api-version={API_VERSION}"
     )
 
-    # Previous Monday 00:00:00 IST
-
     start_ist = datetime.combine(
         start_date,
         datetime.min.time()
@@ -397,16 +381,12 @@ def get_pipeline_runs(
         tzinfo=LOCAL_TIMEZONE
     )
 
-    # Previous Friday 23:59:59.999999 IST
-
     end_ist = datetime.combine(
         end_date,
         datetime.max.time()
     ).replace(
         tzinfo=LOCAL_TIMEZONE
     )
-
-    # Convert boundaries to UTC
 
     start_utc = (
         start_ist.astimezone(
@@ -456,8 +436,6 @@ def get_pipeline_runs(
     all_runs = []
 
     continuation_token = None
-
-    # Synapse pagination
 
     while True:
 
@@ -518,8 +496,7 @@ def get_monitored_runs(
 
         name.lower()
 
-        for name
-        in MONITORED_PIPELINES
+        for name in MONITORED_PIPELINES
     }
 
     filtered_runs = []
@@ -530,8 +507,6 @@ def get_monitored_runs(
             "pipelineName",
             ""
         )
-
-        # Check pipeline name
 
         if (
             pipeline_name.lower()
@@ -557,8 +532,6 @@ def get_monitored_runs(
         run_date = (
             run_start_ist.date()
         )
-
-        # Keep only previous Monday-Friday
 
         if (
             run_date < start_date
@@ -602,7 +575,7 @@ def calculate_average_durations(
             )
         )
 
-        # Ignore InProgress / incomplete jobs
+        # Ignore incomplete / InProgress runs
 
         if duration_ms is None:
 
@@ -664,8 +637,6 @@ def sort_runs(
         )
 
         job_order = 0
-
-        # PL_Captura ordering
 
         if pipeline == (
             "PL_Captura_Snapshots"
@@ -761,9 +732,6 @@ def build_report(
 
     rows = []
 
-    # Average is displayed only on the
-    # first row of each job group.
-
     average_already_displayed = set()
 
     for run in runs:
@@ -795,8 +763,6 @@ def build_report(
         )
 
         average_duration = ""
-
-        # Display average only once per group
 
         if (
             average_group is not None
@@ -909,8 +875,6 @@ def print_table(
         "Avg of duration"
     ]
 
-    # Calculate column widths
-
     widths = {}
 
     for header in headers:
@@ -936,8 +900,6 @@ def print_table(
 
                 len(value)
             )
-
-    # Header
 
     header_line = (
         " | ".join(
@@ -966,8 +928,6 @@ def print_table(
     print(
         separator
     )
-
-    # Rows
 
     for row in rows:
 
@@ -1086,10 +1046,6 @@ def send_email_report(
     graph_token = credential.get_token(
         GRAPH_SCOPE
     ).token
-
-    # --------------------------------------------------------
-    # Microsoft Graph headers
-    # --------------------------------------------------------
 
     headers = {
 
@@ -1335,8 +1291,6 @@ def send_email_report(
 
         timeout=60
     )
-
-    # Print response details if email fails
 
     if not response.ok:
 
