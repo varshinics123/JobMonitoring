@@ -13,18 +13,29 @@ from azure.identity import ClientSecretCredential
 # ============================================================
 
 TENANT_ID = os.environ["AZURE_TENANT_ID"]
+
 CLIENT_ID = os.environ["AZURE_CLIENT_ID"]
+
 CLIENT_SECRET = os.environ["AZURE_CLIENT_SECRET"]
 
-SYNAPSE_ENDPOINT = os.environ["SYNAPSE_ENDPOINT"].rstrip("/")
+SYNAPSE_ENDPOINT = (
+    os.environ["SYNAPSE_ENDPOINT"]
+    .rstrip("/")
+)
 
 API_VERSION = "2020-12-01"
 
-SYNAPSE_SCOPE = "https://dev.azuresynapse.net/.default"
+SYNAPSE_SCOPE = (
+    "https://dev.azuresynapse.net/.default"
+)
 
-LOCAL_TIMEZONE = ZoneInfo("Asia/Kolkata")
+LOCAL_TIMEZONE = ZoneInfo(
+    "Asia/Kolkata"
+)
 
-CSV_FILE = "synapse_pipeline_results.csv"
+CSV_FILE = (
+    "synapse_pipeline_results.csv"
+)
 
 
 # ============================================================
@@ -32,21 +43,29 @@ CSV_FILE = "synapse_pipeline_results.csv"
 # ============================================================
 
 MONITORED_PIPELINES = [
+
     "PL_Captura_Snapshots",
+
     "BronzeToBI_daily_530_am",
+
     "BronzeToBI_daily_530_am_1",
+
     "BronzeToBI_daily_5am",
 ]
 
 
 # ============================================================
-# REQUIRED DISPLAY ORDER
+# PIPELINE DISPLAY ORDER
 # ============================================================
 
 PIPELINE_ORDER = {
+
     "PL_Captura_Snapshots": 0,
+
     "BronzeToBI_daily_530_am": 1,
+
     "BronzeToBI_daily_530_am_1": 2,
+
     "BronzeToBI_daily_5am": 3,
 }
 
@@ -58,8 +77,11 @@ PIPELINE_ORDER = {
 def get_access_token():
 
     credential = ClientSecretCredential(
+
         tenant_id=TENANT_ID,
+
         client_id=CLIENT_ID,
+
         client_secret=CLIENT_SECRET
     )
 
@@ -80,10 +102,16 @@ def parse_datetime(value):
         return None
 
     try:
+
         return datetime.fromisoformat(
-            value.replace("Z", "+00:00")
+            value.replace(
+                "Z",
+                "+00:00"
+            )
         )
+
     except Exception:
+
         return None
 
 
@@ -104,7 +132,7 @@ def convert_to_ist(value):
 
 
 # ============================================================
-# FORMAT DATE/TIME
+# FORMAT DATETIME
 # ============================================================
 
 def format_datetime(value):
@@ -120,7 +148,7 @@ def format_datetime(value):
 
 
 # ============================================================
-# GET DURATION IN MILLISECONDS
+# CALCULATE DURATION
 # ============================================================
 
 def calculate_duration_ms(
@@ -136,12 +164,20 @@ def calculate_duration_ms(
         run_end
     )
 
-    if start_dt is None or end_dt is None:
+    if (
+        start_dt is None
+        or end_dt is None
+    ):
         return None
 
-    return (
+    duration = (
         end_dt - start_dt
-    ).total_seconds() * 1000
+    )
+
+    return (
+        duration.total_seconds()
+        * 1000
+    )
 
 
 # ============================================================
@@ -155,11 +191,20 @@ def format_duration(
     if duration_ms is None:
         return "-"
 
-    total_seconds = round(
-        duration_ms / 1000
-    )
+    try:
 
-    hours = total_seconds // 3600
+        total_seconds = round(
+            duration_ms / 1000
+        )
+
+    except Exception:
+
+        return "-"
+
+    hours = (
+        total_seconds
+        // 3600
+    )
 
     minutes = (
         total_seconds % 3600
@@ -184,7 +229,7 @@ def format_duration(
 
 
 # ============================================================
-# IDENTIFY PL_CAPTURA JOB
+# IDENTIFY PL_CAPTURA JOB TYPE
 # ============================================================
 
 def get_captura_job_type(
@@ -198,19 +243,33 @@ def get_captura_job_type(
     if dt is None:
         return None
 
+    # --------------------------------------------------------
     # 1:30 PM job
+    # --------------------------------------------------------
+
     if (
         dt.hour == 13
         and dt.minute == 30
     ):
-        return "PL_Captura_Snapshots_1_30_PM"
 
+        return (
+            "PL_Captura_Snapshots_1_30_PM"
+        )
+
+
+    # --------------------------------------------------------
     # 11:30 PM job
+    # --------------------------------------------------------
+
     if (
         dt.hour == 23
         and dt.minute == 30
     ):
-        return "PL_Captura_Snapshots_11_30_PM"
+
+        return (
+            "PL_Captura_Snapshots_11_30_PM"
+        )
+
 
     return None
 
@@ -225,10 +284,18 @@ def get_average_group(run):
         "pipelineName"
     )
 
-    if pipeline == "PL_Captura_Snapshots":
+    # --------------------------------------------------------
+    # PL_Captura has two separate jobs
+    # --------------------------------------------------------
 
-        job_type = get_captura_job_type(
-            run.get("runStart")
+    if pipeline == (
+        "PL_Captura_Snapshots"
+    ):
+
+        job_type = (
+            get_captura_job_type(
+                run.get("runStart")
+            )
         )
 
         if job_type is None:
@@ -239,6 +306,11 @@ def get_average_group(run):
             job_type
         )
 
+
+    # --------------------------------------------------------
+    # Other pipelines have one group each
+    # --------------------------------------------------------
+
     return (
         pipeline,
         "single_job"
@@ -246,81 +318,145 @@ def get_average_group(run):
 
 
 # ============================================================
-# GET LAST 5 BUSINESS DAYS
+# GET PREVIOUS WEEK MONDAY-FRIDAY
 # ============================================================
 
-def get_reporting_dates():
+def get_previous_week_range():
 
     today = datetime.now(
         LOCAL_TIMEZONE
     ).date()
 
-    dates = []
 
-    current_date = today
+    # Current week's Monday
 
-    while len(dates) < 5:
-
-        # Monday = 0
-        # Sunday = 6
-
-        if current_date.weekday() < 5:
-
-            dates.append(
-                current_date
-            )
-
-        current_date -= timedelta(
-            days=1
+    current_week_monday = (
+        today
+        - timedelta(
+            days=today.weekday()
         )
+    )
 
-    return set(dates)
+
+    # Previous week's Monday
+
+    previous_week_monday = (
+        current_week_monday
+        - timedelta(days=7)
+    )
+
+
+    # Previous week's Friday
+
+    previous_week_friday = (
+        previous_week_monday
+        + timedelta(days=4)
+    )
+
+
+    return (
+        previous_week_monday,
+        previous_week_friday
+    )
 
 
 # ============================================================
-# GET PIPELINE RUNS FROM SYNAPSE
+# GET SYNAPSE PIPELINE RUNS
 # ============================================================
 
-def get_pipeline_runs():
+def get_pipeline_runs(
+    start_date,
+    end_date
+):
 
-    access_token = get_access_token()
+    access_token = (
+        get_access_token()
+    )
+
 
     url = (
+
         f"{SYNAPSE_ENDPOINT}"
+
         f"/queryPipelineRuns"
+
         f"?api-version={API_VERSION}"
     )
 
-    now_utc = datetime.now(
-        timezone.utc
+
+    # --------------------------------------------------------
+    # Previous Monday 00:00:00 IST
+    # --------------------------------------------------------
+
+    start_ist = datetime.combine(
+
+        start_date,
+
+        datetime.min.time()
+
+    ).replace(
+
+        tzinfo=LOCAL_TIMEZONE
     )
 
-    # Fetch enough data to cover
-    # the last 5 business days.
-    query_start_utc = (
-        now_utc -
-        timedelta(days=10)
+
+    # --------------------------------------------------------
+    # Previous Friday 23:59:59.999999 IST
+    # --------------------------------------------------------
+
+    end_ist = datetime.combine(
+
+        end_date,
+
+        datetime.max.time()
+
+    ).replace(
+
+        tzinfo=LOCAL_TIMEZONE
     )
+
+
+    # --------------------------------------------------------
+    # Convert boundaries to UTC
+    # --------------------------------------------------------
+
+    start_utc = (
+        start_ist.astimezone(
+            timezone.utc
+        )
+    )
+
+    end_utc = (
+        end_ist.astimezone(
+            timezone.utc
+        )
+    )
+
 
     payload = {
 
         "lastUpdatedAfter":
-            query_start_utc.strftime(
+            start_utc.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
 
         "lastUpdatedBefore":
-            now_utc.strftime(
+            end_utc.strftime(
                 "%Y-%m-%dT%H:%M:%SZ"
             ),
 
         "orderBy": [
+
             {
-                "orderBy": "RunStart",
-                "order": "DESC"
+                "orderBy":
+                    "RunStart",
+
+                "order":
+                    "DESC"
             }
         ]
     }
+
 
     headers = {
 
@@ -331,9 +467,15 @@ def get_pipeline_runs():
             "application/json"
     }
 
+
     all_runs = []
 
     continuation_token = None
+
+
+    # --------------------------------------------------------
+    # Synapse pagination
+    # --------------------------------------------------------
 
     while True:
 
@@ -342,6 +484,7 @@ def get_pipeline_runs():
             payload[
                 "continuationToken"
             ] = continuation_token
+
 
         response = requests.post(
 
@@ -354,18 +497,23 @@ def get_pipeline_runs():
             timeout=60
         )
 
+
         response.raise_for_status()
 
+
         data = response.json()
+
 
         runs = data.get(
             "value",
             []
         )
 
+
         all_runs.extend(
             runs
         )
+
 
         continuation_token = (
             data.get(
@@ -373,30 +521,36 @@ def get_pipeline_runs():
             )
         )
 
+
         if not continuation_token:
+
             break
+
 
     return all_runs
 
 
 # ============================================================
-# FILTER LAST 5 BUSINESS DAYS
+# FILTER MONITORED RUNS
 # ============================================================
 
 def get_monitored_runs(
-    all_runs
+    all_runs,
+    start_date,
+    end_date
 ):
 
-    reporting_dates = (
-        get_reporting_dates()
-    )
-
     monitored_names = {
+
         name.lower()
-        for name in MONITORED_PIPELINES
+
+        for name
+        in MONITORED_PIPELINES
     }
 
-    filtered = []
+
+    filtered_runs = []
+
 
     for run in all_runs:
 
@@ -405,38 +559,64 @@ def get_monitored_runs(
             ""
         )
 
+
+        # ----------------------------------------------------
+        # Check pipeline name
+        # ----------------------------------------------------
+
         if (
             pipeline_name.lower()
             not in monitored_names
         ):
+
             continue
+
 
         run_start = run.get(
             "runStart"
         )
 
-        run_start_ist = convert_to_ist(
-            run_start
+
+        run_start_ist = (
+            convert_to_ist(
+                run_start
+            )
         )
 
+
         if run_start_ist is None:
+
             continue
+
+
+        run_date = (
+            run_start_ist.date()
+        )
+
+
+        # ----------------------------------------------------
+        # Keep only previous Monday-Friday
+        # ----------------------------------------------------
 
         if (
-            run_start_ist.date()
-            not in reporting_dates
+            run_date < start_date
+            or
+            run_date > end_date
         ):
+
             continue
 
-        filtered.append(
+
+        filtered_runs.append(
             run
         )
 
-    return filtered
+
+    return filtered_runs
 
 
 # ============================================================
-# CALCULATE AVERAGES
+# CALCULATE WEEKLY AVERAGES
 # ============================================================
 
 def calculate_average_durations(
@@ -445,41 +625,73 @@ def calculate_average_durations(
 
     durations = {}
 
+
     for run in runs:
+
+        run_start = run.get(
+            "runStart"
+        )
+
+        run_end = run.get(
+            "runEnd"
+        )
+
 
         duration_ms = (
             calculate_duration_ms(
-                run.get("runStart"),
-                run.get("runEnd")
+
+                run_start,
+
+                run_end
             )
         )
 
-        # Ignore jobs that are still running.
+
+        # ----------------------------------------------------
+        # Ignore InProgress / incomplete jobs
+        # ----------------------------------------------------
+
         if duration_ms is None:
+
             continue
+
 
         average_group = (
-            get_average_group(run)
+            get_average_group(
+                run
+            )
         )
 
+
         if average_group is None:
+
             continue
 
+
         durations.setdefault(
+
             average_group,
+
             []
         ).append(
             duration_ms
         )
 
+
     averages = {}
 
-    for group, values in durations.items():
 
-        averages[group] = (
-            sum(values)
-            / len(values)
-        )
+    for group, values in (
+        durations.items()
+    ):
+
+        if values:
+
+            averages[group] = (
+                sum(values)
+                / len(values)
+            )
+
 
     return averages
 
@@ -499,6 +711,7 @@ def sort_runs(
             ""
         )
 
+
         pipeline_order = (
             PIPELINE_ORDER.get(
                 pipeline,
@@ -506,39 +719,56 @@ def sort_runs(
             )
         )
 
+
         job_order = 0
 
-        if pipeline == "PL_Captura_Snapshots":
+
+        # ----------------------------------------------------
+        # PL_Captura ordering
+        # ----------------------------------------------------
+
+        if pipeline == (
+            "PL_Captura_Snapshots"
+        ):
 
             job_type = (
                 get_captura_job_type(
-                    run.get("runStart")
+                    run.get(
+                        "runStart"
+                    )
                 )
             )
 
+
             # 1:30 PM first
-            if (
-                job_type ==
+
+            if job_type == (
                 "PL_Captura_Snapshots_1_30_PM"
             ):
 
                 job_order = 0
 
+
             # 11:30 PM second
-            elif (
-                job_type ==
+
+            elif job_type == (
                 "PL_Captura_Snapshots_11_30_PM"
             ):
 
                 job_order = 1
 
+
             else:
 
                 job_order = 2
 
+
         run_start = parse_datetime(
-            run.get("runStart")
+            run.get(
+                "runStart"
+            )
         )
+
 
         if run_start:
 
@@ -548,13 +778,20 @@ def sort_runs(
 
         else:
 
-            timestamp = float("inf")
+            timestamp = float(
+                "inf"
+            )
+
 
         return (
+
             pipeline_order,
+
             job_order,
+
             timestamp
         )
+
 
     return sorted(
         runs,
@@ -577,6 +814,7 @@ def get_triggered_by(
         or {}
     )
 
+
     return invoked_by.get(
         "name",
         "-"
@@ -584,7 +822,7 @@ def get_triggered_by(
 
 
 # ============================================================
-# BUILD REPORT
+# BUILD REPORT ROWS
 # ============================================================
 
 def build_report(
@@ -594,9 +832,14 @@ def build_report(
 
     rows = []
 
-    # Track first row of every
-    # average group.
+
+    # --------------------------------------------------------
+    # Average is displayed only on the
+    # first row of each job group.
+    # --------------------------------------------------------
+
     average_already_displayed = set()
+
 
     for run in runs:
 
@@ -605,46 +848,71 @@ def build_report(
             "-"
         )
 
+
         run_start = run.get(
             "runStart"
         )
+
 
         run_end = run.get(
             "runEnd"
         )
 
+
         duration_ms = (
             calculate_duration_ms(
+
                 run_start,
+
                 run_end
             )
         )
 
+
         average_group = (
-            get_average_group(run)
+            get_average_group(
+                run
+            )
         )
+
 
         average_duration = ""
 
-        # Show average only once
-        # for each job group.
+
+        # ----------------------------------------------------
+        # Display average only once
+        # per job group.
+        # ----------------------------------------------------
+
         if (
+
             average_group is not None
-            and average_group
+
+            and
+
+            average_group
             not in average_already_displayed
+
         ):
 
-            average_duration = (
-                format_duration(
-                    averages.get(
-                        average_group
+            average_ms = averages.get(
+                average_group
+            )
+
+
+            if average_ms is not None:
+
+                average_duration = (
+                    format_duration(
+                        average_ms
                     )
                 )
-            )
+
 
             average_already_displayed.add(
                 average_group
             )
+
 
         rows.append({
 
@@ -687,11 +955,12 @@ def build_report(
                 average_duration
         })
 
+
     return rows
 
 
 # ============================================================
-# PRINT TABLE TO GITHUB LOG
+# PRINT TABLE
 # ============================================================
 
 def print_table(
@@ -699,9 +968,10 @@ def print_table(
 ):
 
     print()
-    print("=" * 160)
+    print("=" * 180)
     print("SYNAPSE JOB MONITORING RESULTS")
-    print("=" * 160)
+    print("=" * 180)
+
 
     if not rows:
 
@@ -711,19 +981,33 @@ def print_table(
 
         return
 
+
     headers = [
+
         "Pipeline name",
+
         "Run start",
+
         "Run end",
+
         "Duration",
+
         "Triggered by",
+
         "Status",
+
         "Run ID",
+
         "Avg of duration"
     ]
 
-    # Determine column widths.
+
+    # --------------------------------------------------------
+    # Calculate column widths
+    # --------------------------------------------------------
+
     widths = {}
+
 
     for header in headers:
 
@@ -731,42 +1015,72 @@ def print_table(
             header
         )
 
+
     for row in rows:
 
         for header in headers:
 
-            widths[header] = max(
-                widths[header],
-                len(
-                    str(
-                        row.get(
-                            header,
-                            ""
-                        )
-                    )
+            value = str(
+                row.get(
+                    header,
+                    ""
                 )
             )
 
+
+            widths[header] = max(
+
+                widths[header],
+
+                len(value)
+            )
+
+
+    # --------------------------------------------------------
     # Header
-    header_line = " | ".join(
-        header.ljust(
-            widths[header]
+    # --------------------------------------------------------
+
+    header_line = (
+        " | ".join(
+
+            header.ljust(
+                widths[header]
+            )
+
+            for header in headers
         )
-        for header in headers
     )
 
-    separator = "-+-".join(
-        "-" * widths[header]
-        for header in headers
+
+    separator = (
+        "-+-".join(
+
+            "-" * widths[header]
+
+            for header in headers
+        )
     )
 
-    print(header_line)
-    print(separator)
+
+    print(
+        header_line
+    )
+
+    print(
+        separator
+    )
+
+
+    # --------------------------------------------------------
+    # Rows
+    # --------------------------------------------------------
 
     for row in rows:
 
         print(
+
             " | ".join(
+
                 str(
                     row.get(
                         header,
@@ -775,9 +1089,11 @@ def print_table(
                 ).ljust(
                     widths[header]
                 )
+
                 for header in headers
             )
         )
+
 
     print()
     print(
@@ -812,27 +1128,41 @@ def create_csv(
         "Avg of duration"
     ]
 
+
     with open(
+
         CSV_FILE,
+
         "w",
+
         newline="",
+
         encoding="utf-8"
+
     ) as file:
 
+
         writer = csv.DictWriter(
+
             file,
+
             fieldnames=headers
         )
 
+
         writer.writeheader()
+
 
         writer.writerows(
             rows
         )
 
+
     print()
+
     print(
-        f"CSV generated: {CSV_FILE}"
+        f"CSV generated: "
+        f"{CSV_FILE}"
     )
 
 
@@ -843,64 +1173,151 @@ def create_csv(
 def main():
 
     print()
+
     print("=" * 80)
-    print("Starting JobMonitoring")
+
+    print(
+        "Starting JobMonitoring"
+    )
+
     print("=" * 80)
+
+
+    # --------------------------------------------------------
+    # Determine previous week's Monday-Friday
+    # --------------------------------------------------------
+
+    start_date, end_date = (
+        get_previous_week_range()
+    )
+
+
+    print()
+
+    print(
+        "Reporting period:"
+    )
+
+    print(
+
+        f"{start_date.strftime('%d/%m/%Y')}"
+        f" to "
+        f"{end_date.strftime('%d/%m/%Y')}"
+    )
+
+
+    print()
+
 
     print(
         "Connecting to Azure Synapse..."
     )
 
-    all_runs = get_pipeline_runs()
+
+    # --------------------------------------------------------
+    # Fetch Synapse runs
+    # --------------------------------------------------------
+
+    all_runs = get_pipeline_runs(
+
+        start_date,
+
+        end_date
+    )
+
+
+    print()
 
     print(
         f"Total runs received: "
         f"{len(all_runs)}"
     )
 
+
+    # --------------------------------------------------------
+    # Filter monitored pipelines
+    # --------------------------------------------------------
+
     monitored_runs = (
         get_monitored_runs(
-            all_runs
+
+            all_runs,
+
+            start_date,
+
+            end_date
         )
     )
 
+
     print(
-        f"Runs in last 5 business days: "
+        f"Monitored runs found: "
         f"{len(monitored_runs)}"
     )
+
+
+    # --------------------------------------------------------
+    # Sort results
+    # --------------------------------------------------------
 
     monitored_runs = sort_runs(
         monitored_runs
     )
 
+
+    # --------------------------------------------------------
+    # Calculate previous week's averages
+    # --------------------------------------------------------
+
     averages = (
         calculate_average_durations(
+
             monitored_runs
         )
     )
 
+
+    # --------------------------------------------------------
+    # Build final report
+    # --------------------------------------------------------
+
     rows = build_report(
+
         monitored_runs,
+
         averages
     )
+
+
+    # --------------------------------------------------------
+    # Print table to GitHub log
+    # --------------------------------------------------------
 
     print_table(
         rows
     )
 
+
+    # --------------------------------------------------------
+    # Create CSV
+    # --------------------------------------------------------
+
     create_csv(
         rows
     )
 
+
     print()
+
     print(
         "JobMonitoring completed successfully."
     )
 
 
 # ============================================================
-# START
+# PROGRAM START
 # ============================================================
 
 if __name__ == "__main__":
+
     main()
